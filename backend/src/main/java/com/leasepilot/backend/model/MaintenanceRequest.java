@@ -64,6 +64,13 @@ public class MaintenanceRequest {
     @Column(columnDefinition = "TEXT")
     private String photoObservations;
 
+    // Short noun phrase naming the damage (e.g. "water stain"), sent to SAM to find it in the photo
+    private String damagePhrase;
+
+    // SAM 3.1's raw answer: a box and mask for each match. The frontend decodes and draws it.
+    @Column(columnDefinition = "MEDIUMTEXT")
+    private String damageSegmentation;
+
     // --- Lifecycle ---
 
     @Enumerated(EnumType.STRING)
@@ -97,6 +104,8 @@ public class MaintenanceRequest {
     public Urgency getUrgency() { return urgency; }
     public String getUrgencyReason() { return urgencyReason; }
     public String getPhotoObservations() { return photoObservations; }
+    public String getDamagePhrase() { return damagePhrase; }
+    public String getDamageSegmentation() { return damageSegmentation; }
     public RequestStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getResolvedAt() { return resolvedAt; }
@@ -109,6 +118,8 @@ public class MaintenanceRequest {
     public void setUrgency(Urgency urgency) { this.urgency = urgency; }
     public void setUrgencyReason(String urgencyReason) { this.urgencyReason = urgencyReason; }
     public void setPhotoObservations(String photoObservations) { this.photoObservations = photoObservations; }
+    public void setDamagePhrase(String damagePhrase) { this.damagePhrase = damagePhrase; }
+    public void setDamageSegmentation(String damageSegmentation) { this.damageSegmentation = damageSegmentation; }
     public void setStatus(RequestStatus status) { this.status = status; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public void setResolvedAt(Instant resolvedAt) { this.resolvedAt = resolvedAt; }

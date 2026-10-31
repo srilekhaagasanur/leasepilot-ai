@@ -29,6 +29,9 @@ public record AgentDraftResponse(
         Urgency urgency,
         String urgencyReason,
         String photoObservations,
+        String damagePhrase,
+        // SAM 3.1's box + mask text for the damage in the photo (null if none)
+        String damageSegmentation,
         // What the agent proposes
         Responsibility responsibility,
         String citedClauseNumber,
@@ -53,6 +56,7 @@ public record AgentDraftResponse(
                 d.getId(), r.getId(), r.getUnit().getUnitNumber(), r.getTenant().getFullName(), r.getCreatedAt(),
                 r.getDescription(), r.getTranscript(), r.getPhotoPath() != null,
                 r.getAiSummary(), r.getCategory(), r.getUrgency(), r.getUrgencyReason(), r.getPhotoObservations(),
+                r.getDamagePhrase(), r.getDamageSegmentation(),
                 d.getResponsibility(),
                 clause != null ? clause.getClauseNumber() : null,
                 clause != null ? clause.getTitle() : null,

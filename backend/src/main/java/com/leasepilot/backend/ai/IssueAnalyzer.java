@@ -41,6 +41,10 @@ public class IssueAnalyzer {
             - urgencyReason: one sentence explaining the urgency you chose.
             - photoObservations: what you can see in the photo that matters for the repair,
               or an empty string if there is no photo.
+            - damagePhrase: a short noun phrase (1-4 words) naming the damaged thing or area that
+              is visible in the photo, e.g. "water stain", "cracked tile", "burnt outlet", "mold".
+              It is used to highlight the damage in the photo, so name one concrete visible thing,
+              not a sentence or command. Use an empty string if there is no photo or no visible damage.
             """;
 
     private final MuseSparkClient museSparkClient;
@@ -80,8 +84,10 @@ public class IssueAnalyzer {
                         "category", Map.of("type", "string", "enum", names(ServiceCategory.values())),
                         "urgency", Map.of("type", "string", "enum", names(Urgency.values())),
                         "urgencyReason", Map.of("type", "string"),
-                        "photoObservations", Map.of("type", "string")),
-                "required", List.of("summary", "category", "urgency", "urgencyReason", "photoObservations"),
+                        "photoObservations", Map.of("type", "string"),
+                        "damagePhrase", Map.of("type", "string")),
+                "required", List.of("summary", "category", "urgency", "urgencyReason", "photoObservations",
+                        "damagePhrase"),
                 "additionalProperties", false);
     }
 

@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.leasepilot.backend.agent.MaintenanceAgent;
 import com.leasepilot.backend.ai.IssueAnalysis;
 import com.leasepilot.backend.ai.IssueAnalyzer;
+import com.leasepilot.backend.ai.SamClient;
 import com.leasepilot.backend.ai.VoiceTranscribeClient;
 import com.leasepilot.backend.dto.MaintenanceRequestResponse;
 import com.leasepilot.backend.model.AgentDraft;
@@ -27,6 +28,7 @@ import com.leasepilot.backend.repository.TenancyRepository;
 
 // Handles a new maintenance request from a tenant:
 // save it -> store the photo/voice note -> transcribe the voice note -> let Muse Spark analyze it
+// -> let SAM 3.1 find the damage in the photo
 // -> let the agent draft a work order and reply for the manager's approval queue.
 @Service
 public class MaintenanceIntakeService {
@@ -46,6 +48,7 @@ public class MaintenanceIntakeService {
     private final FileStorageService fileStorage;
     private final VoiceTranscribeClient voiceTranscribeClient;
     private final IssueAnalyzer issueAnalyzer;
+    private final SamClient samClient;
     private final MaintenanceAgent maintenanceAgent;
 
     public MaintenanceIntakeService(TenancyRepository tenancyRepository,
@@ -54,6 +57,7 @@ public class MaintenanceIntakeService {
                                     FileStorageService fileStorage,
                                     VoiceTranscribeClient voiceTranscribeClient,
                                     IssueAnalyzer issueAnalyzer,
+                                    SamClient samClient,
                                     MaintenanceAgent maintenanceAgent) {
         this.tenancyRepository = tenancyRepository;
         this.requestRepository = requestRepository;
@@ -61,6 +65,7 @@ public class MaintenanceIntakeService {
         this.fileStorage = fileStorage;
         this.voiceTranscribeClient = voiceTranscribeClient;
         this.issueAnalyzer = issueAnalyzer;
+        this.samClient = samClient;
         this.maintenanceAgent = maintenanceAgent;
     }
 
@@ -117,15 +122,20 @@ public class MaintenanceIntakeService {
         String aiError = null;
         try {
             if (hasVoice) {
+                log.info("Request {}: Muse Voice Transcribe -> transcribing voice note", request.getId());
                 request.setTranscript(voiceTranscribeClient.transcribe(voiceBytes));
+                log.info("Request {}: transcript = \"{}\"", request.getId(), request.getTranscript());
             }
+            log.info("Request {}: Muse Spark -> analyzing report{}", request.getId(), hasPhoto ? " and photo" : "");
             IssueAnalysis analysis = issueAnalyzer.analyze(request.getDescription(), request.getTranscript(),
                     photoBytes, photoType);
+            log.info("Request {}: analysis = {}", request.getId(), analysis);
             request.setAiSummary(analysis.summary());
             request.setCategory(analysis.category());
             request.setUrgency(analysis.urgency());
             request.setUrgencyReason(analysis.urgencyReason());
             request.setPhotoObservations(blankToNull(analysis.photoObservations()));
+            request.setDamagePhrase(blankToNull(analysis.damagePhrase()));
             requestRepository.save(request);
         } catch (RuntimeException e) {
             log.error("AI analysis failed for request {}", request.getId(), e);
@@ -134,9 +144,24 @@ public class MaintenanceIntakeService {
             return MaintenanceRequestResponse.from(request, aiError, null);
         }
 
-        // 5. The agent checks the lease, history, and vendors, and drafts a work order + reply
+        // 5. SAM 3.1 outlines the damage in the photo. Nice to have: if it fails, carry on without it.
+        if (hasPhoto && request.getDamagePhrase() != null) {
+            try {
+                log.info("Request {}: SAM 3.1 -> segmenting \"{}\" in photo", request.getId(), request.getDamagePhrase());
+                request.setDamageSegmentation(samClient.segment(photoBytes, photoType, request.getDamagePhrase()));
+                log.info("Request {}: SAM 3.1 {}", request.getId(),
+                        request.getDamageSegmentation() == null ? "found no match" : "found the damage");
+                requestRepository.save(request);
+            } catch (RuntimeException e) {
+                log.warn("SAM segmentation failed for request {}", request.getId(), e);
+            }
+        }
+
+        // 6. The agent checks the lease, history, and vendors, and drafts a work order + reply
         try {
+            log.info("Request {}: Muse Spark agent -> drafting work order", request.getId());
             maintenanceAgent.run(request);
+            log.info("Request {}: draft ready for manager approval", request.getId());
         } catch (RuntimeException e) {
             log.error("Agent failed for request {}", request.getId(), e);
             aiError = "Agent failed: " + e.getMessage();

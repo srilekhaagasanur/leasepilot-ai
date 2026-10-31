@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { CategoryTag, ResponsibilityBadge, UrgencyBadge } from './Badges'
+import DamagePhoto from './DamagePhoto'
 
 const TOOL_LABELS = {
   get_lease_clauses: 'Read the lease',
@@ -54,7 +55,7 @@ export default function DraftCard({ draft: d, managerId, onDecided }) {
               <p className="mt-2 text-slate-600"><span className="font-medium">🎙️ Voice note:</span> "{d.transcript}"</p>
             )}
             {d.hasPhoto && (
-              <img src={api.photoUrl(d.requestId)} alt="Tenant's photo" className="mt-3 max-h-56 rounded-lg border border-slate-200 object-cover" />
+              <DamagePhoto src={api.photoUrl(d.requestId)} segmentation={d.damageSegmentation} phrase={d.damagePhrase} />
             )}
             {d.photoObservations && <p className="mt-2 text-sm text-slate-600"><span className="font-medium">AI sees:</span> {d.photoObservations}</p>}
             {d.urgencyReason && <p className="mt-2 text-sm text-slate-600"><span className="font-medium">Why {d.urgency?.toLowerCase()}:</span> {d.urgencyReason}</p>}

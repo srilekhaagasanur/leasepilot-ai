@@ -9,5 +9,7 @@ public record IssueAnalysis(
         ServiceCategory category,
         Urgency urgency,
         String urgencyReason,
-        String photoObservations) {
+        String photoObservations,
+        // Short noun phrase naming the visible damage, used as the SAM 3.1 prompt ("" if none)
+        String damagePhrase) {
 }

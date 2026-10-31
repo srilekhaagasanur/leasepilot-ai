@@ -21,6 +21,9 @@ public record MaintenanceRequestResponse(
         Urgency urgency,
         String urgencyReason,
         String photoObservations,
+        String damagePhrase,
+        // SAM 3.1's box + mask text for the damage in the photo (null if none)
+        String damageSegmentation,
         RequestStatus status,
         Instant createdAt,
         // Set only if an AI step failed; the request is still saved
@@ -42,6 +45,8 @@ public record MaintenanceRequestResponse(
                 r.getUrgency(),
                 r.getUrgencyReason(),
                 r.getPhotoObservations(),
+                r.getDamagePhrase(),
+                r.getDamageSegmentation(),
                 r.getStatus(),
                 r.getCreatedAt(),
                 aiError,
