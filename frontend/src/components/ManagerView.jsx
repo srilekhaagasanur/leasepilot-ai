@@ -4,7 +4,7 @@ import DraftCard from './DraftCard'
 
 const TABS = [
   { id: 'queue', label: 'Approval queue' },
-  { id: 'tenants', label: 'Tenant requests' },
+  { id: 'tenants', label: 'Move-in requests' },
   { id: 'history', label: 'History' },
 ]
 
@@ -67,7 +67,7 @@ export default function ManagerView({ user, onTenancyChanged }) {
 
       {!loading && tab === 'tenants' && (
         tenancies.length === 0
-          ? <Empty text="No tenants waiting to join a unit." />
+          ? <Empty text="No move-in requests waiting for approval." />
           : <ul className="space-y-3">
               {tenancies.map((t) => (
                 <TenancyItem key={t.tenancyId} tenancy={t} managerId={user.id}

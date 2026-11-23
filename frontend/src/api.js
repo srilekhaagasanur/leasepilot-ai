@@ -20,6 +20,7 @@ function postJson(path, data) {
 
 export const api = {
   demoUsers: () => request('/api/demo/users'),
+  resetDemo: () => request('/api/demo/reset', { method: 'POST' }),
 
   // Tenant
   myRequests: (tenantId) => request(`/api/tenant/requests?tenantId=${tenantId}`),

@@ -106,8 +106,20 @@ public class DemoDataSeeder implements CommandLineRunner {
         vendorRepository.save(new Vendor("GreenShield Pest Control", ServiceCategory.PEST_CONTROL, "(614) 555-0119", "help@greenshield.example.com"));
         vendorRepository.save(new Vendor("HandyPro General Repairs", ServiceCategory.GENERAL, "(614) 555-0155", "office@handypro.example.com"));
 
-        // --- Past repairs. Unit 2B has a kitchen sink that keeps leaking, so the agent
-        //     has a pattern to notice when Priya reports it again. ---
+        seedPastRequests();
+
+        log.info("Seeded demo data: 5 users, 1 property, 4 units, 3 leases, 6 vendors, 4 past requests");
+    }
+
+    // Past repairs. Unit 2B has a kitchen sink that keeps leaking, so the agent
+    // has a pattern to notice when Priya reports it again.
+    // Also called by the demo reset, so it looks people and units up instead of taking them as arguments.
+    public void seedPastRequests() {
+        Unit unit1A = unitByInviteCode("OAK-1A-4H2M");
+        Unit unit2B = unitByInviteCode("OAK-2B-7F3K");
+        AppUser marcus = userByEmail("marcus.reed@example.com");
+        AppUser priya = userByEmail("priya.shah@example.com");
+
         pastRequest(unit2B, priya, "Water is leaking under the kitchen sink and the cabinet floor is wet.",
                 "Leak under kitchen sink", ServiceCategory.PLUMBING, Urgency.MEDIUM, "2026-03-14", "2026-03-16");
         pastRequest(unit2B, priya, "Kitchen sink is leaking again, same spot as in March. Put a bucket under it.",
@@ -116,8 +128,16 @@ public class DemoDataSeeder implements CommandLineRunner {
                 "Sparking bedroom outlet", ServiceCategory.ELECTRICAL, Urgency.HIGH, "2026-08-20", "2026-08-20");
         pastRequest(unit1A, marcus, "AC is running but the apartment isn't cooling down.",
                 "AC not cooling", ServiceCategory.HVAC, Urgency.MEDIUM, "2026-07-09", "2026-07-11");
+    }
 
-        log.info("Seeded demo data: 5 users, 1 property, 4 units, 3 leases, 6 vendors, 4 past requests");
+    private Unit unitByInviteCode(String inviteCode) {
+        return unitRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new IllegalStateException("Demo unit missing: " + inviteCode));
+    }
+
+    private AppUser userByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Demo user missing: " + email));
     }
 
     private void approvedTenancy(AppUser tenant, Unit unit) {

@@ -74,6 +74,8 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            <ResetDemo onReset={loadUsers} />
           </div>
         )}
 
@@ -83,3 +85,42 @@ export default function App() {
     </div>
   )
 }
+
+// Puts the demo back to its starting data. Asks for confirmation in the page itself.
+function ResetDemo({ onReset }) {
+  const [state, setState] = useState('idle') // idle | confirming | resetting | done | failed
+
+  async function reset() {
+    setState('resetting')
+    try {
+      await api.resetDemo()
+      onReset()
+      setState('done')
+    } catch {
+      setState('failed')
+    }
+  }
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-6 text-sm text-slate-500">
+      {state === 'confirming' ? (
+        <>
+          <span>Delete all new requests and drafts and restore the original demo data?</span>
+          <button onClick={reset} className="rounded-lg bg-rose-600 px-3 py-1.5 font-semibold text-white hover:bg-rose-700">Yes, reset</button>
+          <button onClick={() => setState('idle')} className="font-medium text-slate-600 hover:text-slate-900">Cancel</button>
+        </>
+      ) : (
+        <>
+          <button onClick={() => setState('confirming')} disabled={state === 'resetting'}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            {state === 'resetting' ? 'Resetting…' : '↺ Reset demo'}
+          </button>
+          {state === 'idle' && <span>Starts the demo over with the original sample data.</span>}
+          {state === 'done' && <span className="text-emerald-700">Demo reset. Everything is back to the starting point.</span>}
+          {state === 'failed' && <span className="text-rose-600">Reset failed. Is the backend running?</span>}
+        </>
+      )}
+    </div>
+  )
+}
+

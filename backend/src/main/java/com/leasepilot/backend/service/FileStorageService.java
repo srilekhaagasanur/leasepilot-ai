@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,22 @@ public class FileStorageService {
             return Files.readAllBytes(file);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read upload", e);
+        }
+    }
+
+    // Deletes every request's photo and voice note (used by the demo reset)
+    public void deleteAllRequestFiles() {
+        Path folder = uploadRoot.resolve("requests");
+        if (!Files.exists(folder)) {
+            return;
+        }
+        // Deepest paths first, so each folder is already empty when we delete it
+        try (Stream<Path> paths = Files.walk(folder)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not delete uploads", e);
         }
     }
 }
