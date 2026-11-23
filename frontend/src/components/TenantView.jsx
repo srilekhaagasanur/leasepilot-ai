@@ -12,6 +12,14 @@ export default function TenantView({ user }) {
 
   useEffect(loadRequests, [loadRequests])
 
+  // While the AI is still working on a request in the background, check back every few seconds
+  const aiWorking = requests.some((r) => r.aiStatus === 'PROCESSING')
+  useEffect(() => {
+    if (!aiWorking) return
+    const timer = setInterval(loadRequests, 4000)
+    return () => clearInterval(timer)
+  }, [aiWorking, loadRequests])
+
   if (user.tenancyStatus !== 'APPROVED') {
     return (
       <div className="mx-auto max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-6">
@@ -112,17 +120,11 @@ function ReportForm({ user, onSubmitted }) {
           {submitting ? 'Sending…' : 'Send to property manager'}
         </button>
 
-        {submitting && (
-          <div className="flex items-start gap-3 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900">
-            <span className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700" />
-            <span>Our AI assistant is reviewing your report{voiceNote ? ', transcribing your voice note,' : ''} and preparing it for the manager. This usually takes 20–40 seconds.</span>
-          </div>
-        )}
         {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         {result && (
           <div className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-900">
-            <p className="font-semibold">Got it — your request is with the property manager.</p>
-            <p className="mt-1">We logged it as: <strong>{result.aiSummary ?? 'Maintenance request'}</strong></p>
+            <p className="font-semibold">Got it — your request is on its way to the property manager.</p>
+            <p className="mt-1">Our AI assistant is preparing it now. You'll see it update in your requests.</p>
           </div>
         )}
       </form>
@@ -134,8 +136,15 @@ function RequestItem({ request: r }) {
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium">{r.aiSummary ?? r.description ?? 'Maintenance request'}</p>
-        <StatusBadge status={r.status} />
+        <p className="font-medium">{r.aiSummary ?? r.description ?? (r.hasVoiceNote ? 'Voice note' : 'Maintenance request')}</p>
+        {r.aiStatus === 'PROCESSING' ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+            AI is reviewing…
+          </span>
+        ) : (
+          <StatusBadge status={r.status} />
+        )}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
         <span>{new Date(r.createdAt).toLocaleDateString()}</span>

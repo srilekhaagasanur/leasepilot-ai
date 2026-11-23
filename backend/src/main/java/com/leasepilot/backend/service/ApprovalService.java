@@ -8,10 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.leasepilot.backend.agent.MaintenanceAgent;
 import com.leasepilot.backend.agent.ToolStep;
 import com.leasepilot.backend.dto.AgentDraftResponse;
+import com.leasepilot.backend.dto.ProcessingRequestResponse;
 import com.leasepilot.backend.model.AgentDraft;
+import com.leasepilot.backend.model.AiStatus;
 import com.leasepilot.backend.model.ApprovalStatus;
 import com.leasepilot.backend.model.MaintenanceRequest;
 import com.leasepilot.backend.model.RequestStatus;
@@ -29,15 +30,15 @@ public class ApprovalService {
 
     private final AgentDraftRepository draftRepository;
     private final MaintenanceRequestRepository requestRepository;
-    private final MaintenanceAgent maintenanceAgent;
+    private final RequestProcessor requestProcessor;
     private final JsonMapper jsonMapper;
 
     public ApprovalService(AgentDraftRepository draftRepository,
-                           MaintenanceRequestRepository requestRepository, MaintenanceAgent maintenanceAgent,
+                           MaintenanceRequestRepository requestRepository, RequestProcessor requestProcessor,
                            JsonMapper jsonMapper) {
         this.draftRepository = draftRepository;
         this.requestRepository = requestRepository;
-        this.maintenanceAgent = maintenanceAgent;
+        this.requestProcessor = requestProcessor;
         this.jsonMapper = jsonMapper;
     }
 
@@ -71,19 +72,31 @@ public class ApprovalService {
         return toResponse(draft);
     }
 
-    // Runs the agent again for a request (e.g. after it failed, or the manager rejected its draft)
-    public AgentDraftResponse rerunAgent(Long requestId, Long managerId) {
-        MaintenanceRequest request = requestRepository.findById(requestId)
+    // --- Requests the AI hasn't finished ---
+
+    // Still being worked on, or failed (so the manager can retry)
+    public List<ProcessingRequestResponse> unfinishedRequests(Long managerId) {
+        return requestRepository.findByUnitPropertyManagerIdAndAiStatusInOrderByCreatedAtDesc(managerId,
+                        List.of(AiStatus.PROCESSING, AiStatus.FAILED)).stream()
+                .map(ProcessingRequestResponse::from)
+                .toList();
+    }
+
+    // Runs the AI again on a request it couldn't finish. Steps that already worked are skipped.
+    public ProcessingRequestResponse retryAi(Long requestId, Long managerId) {
+        MaintenanceRequest request = requestRepository.findWithDetailsById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
         checkManages(request.getUnit(), managerId);
-        if (request.getStatus() == RequestStatus.APPROVED || request.getStatus() == RequestStatus.RESOLVED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request was already approved");
+        if (request.getAiStatus() != AiStatus.FAILED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The AI isn't stuck on this request");
         }
-        if (request.getCategory() == null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request hasn't been analyzed yet");
-        }
-        return toResponse(maintenanceAgent.run(request));
+        request.setAiStatus(AiStatus.PROCESSING);
+        request.setAiError(null);
+        requestRepository.save(request);
+        requestProcessor.processInBackground(requestId);
+        return ProcessingRequestResponse.from(request);
     }
+
 
     // --- Helpers ---
 

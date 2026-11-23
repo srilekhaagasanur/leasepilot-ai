@@ -71,6 +71,15 @@ public class MaintenanceRequest {
     @Column(columnDefinition = "MEDIUMTEXT")
     private String damageSegmentation;
 
+    // --- Background AI work ---
+
+    @Enumerated(EnumType.STRING)
+    private AiStatus aiStatus;
+
+    // Why the AI couldn't finish (shown to the manager next to the Retry button)
+    @Column(columnDefinition = "TEXT")
+    private String aiError;
+
     // --- Lifecycle ---
 
     @Enumerated(EnumType.STRING)
@@ -106,6 +115,8 @@ public class MaintenanceRequest {
     public String getPhotoObservations() { return photoObservations; }
     public String getDamagePhrase() { return damagePhrase; }
     public String getDamageSegmentation() { return damageSegmentation; }
+    public AiStatus getAiStatus() { return aiStatus; }
+    public String getAiError() { return aiError; }
     public RequestStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getResolvedAt() { return resolvedAt; }
@@ -120,6 +131,8 @@ public class MaintenanceRequest {
     public void setPhotoObservations(String photoObservations) { this.photoObservations = photoObservations; }
     public void setDamagePhrase(String damagePhrase) { this.damagePhrase = damagePhrase; }
     public void setDamageSegmentation(String damageSegmentation) { this.damageSegmentation = damageSegmentation; }
+    public void setAiStatus(AiStatus aiStatus) { this.aiStatus = aiStatus; }
+    public void setAiError(String aiError) { this.aiError = aiError; }
     public void setStatus(RequestStatus status) { this.status = status; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public void setResolvedAt(Instant resolvedAt) { this.resolvedAt = resolvedAt; }

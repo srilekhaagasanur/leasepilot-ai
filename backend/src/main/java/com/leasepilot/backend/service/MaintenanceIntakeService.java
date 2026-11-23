@@ -5,20 +5,14 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.leasepilot.backend.agent.MaintenanceAgent;
-import com.leasepilot.backend.ai.IssueAnalysis;
-import com.leasepilot.backend.ai.IssueAnalyzer;
-import com.leasepilot.backend.ai.SamClient;
-import com.leasepilot.backend.ai.VoiceTranscribeClient;
 import com.leasepilot.backend.dto.MaintenanceRequestResponse;
 import com.leasepilot.backend.model.AgentDraft;
+import com.leasepilot.backend.model.AiStatus;
 import com.leasepilot.backend.model.ApprovalStatus;
 import com.leasepilot.backend.model.MaintenanceRequest;
 import com.leasepilot.backend.model.Tenancy;
@@ -26,14 +20,11 @@ import com.leasepilot.backend.repository.AgentDraftRepository;
 import com.leasepilot.backend.repository.MaintenanceRequestRepository;
 import com.leasepilot.backend.repository.TenancyRepository;
 
-// Handles a new maintenance request from a tenant:
-// save it -> store the photo/voice note -> transcribe the voice note -> let Muse Spark analyze it
-// -> let SAM 3.1 find the damage in the photo
-// -> let the agent draft a work order and reply for the manager's approval queue.
+// Handles a new maintenance request from a tenant: check it, save it and its photo/voice note,
+// then hand it to RequestProcessor, which runs the AI steps in the background.
+// The tenant gets an answer right away instead of waiting for the AI.
 @Service
 public class MaintenanceIntakeService {
-
-    private static final Logger log = LoggerFactory.getLogger(MaintenanceIntakeService.class);
 
     // Photo types Muse Spark accepts, mapped to the file extension we save them with
     private static final Map<String, String> PHOTO_TYPES = Map.of(
@@ -46,33 +37,24 @@ public class MaintenanceIntakeService {
     private final MaintenanceRequestRepository requestRepository;
     private final AgentDraftRepository draftRepository;
     private final FileStorageService fileStorage;
-    private final VoiceTranscribeClient voiceTranscribeClient;
-    private final IssueAnalyzer issueAnalyzer;
-    private final SamClient samClient;
-    private final MaintenanceAgent maintenanceAgent;
+    private final RequestProcessor requestProcessor;
 
     public MaintenanceIntakeService(TenancyRepository tenancyRepository,
                                     MaintenanceRequestRepository requestRepository,
                                     AgentDraftRepository draftRepository,
                                     FileStorageService fileStorage,
-                                    VoiceTranscribeClient voiceTranscribeClient,
-                                    IssueAnalyzer issueAnalyzer,
-                                    SamClient samClient,
-                                    MaintenanceAgent maintenanceAgent) {
+                                    RequestProcessor requestProcessor) {
         this.tenancyRepository = tenancyRepository;
         this.requestRepository = requestRepository;
         this.draftRepository = draftRepository;
         this.fileStorage = fileStorage;
-        this.voiceTranscribeClient = voiceTranscribeClient;
-        this.issueAnalyzer = issueAnalyzer;
-        this.samClient = samClient;
-        this.maintenanceAgent = maintenanceAgent;
+        this.requestProcessor = requestProcessor;
     }
 
     // A tenant's own requests, newest first. The reply is shown only once the manager approved it.
     public List<MaintenanceRequestResponse> listForTenant(Long tenantId) {
         return requestRepository.findByTenantIdOrderByCreatedAtDesc(tenantId).stream()
-                .map(r -> MaintenanceRequestResponse.from(r, null, draftRepository.findByRequestId(r.getId())
+                .map(r -> MaintenanceRequestResponse.from(r, draftRepository.findByRequestId(r.getId())
                         .filter(d -> d.getApprovalStatus() == ApprovalStatus.APPROVED)
                         .map(AgentDraft::getTenantReplyText)
                         .orElse(null)))
@@ -104,70 +86,22 @@ public class MaintenanceIntakeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "This tenant isn't approved for any unit yet"));
 
-        // 3. Save the request first, so nothing is lost even if an AI step fails
-        MaintenanceRequest request = requestRepository.save(
-                new MaintenanceRequest(tenancy.getUnit(), tenancy.getTenant(), hasText ? description.trim() : null));
+        // 3. Save the request and its files, then let the AI work on it in the background
+        MaintenanceRequest request = new MaintenanceRequest(tenancy.getUnit(), tenancy.getTenant(),
+                hasText ? description.trim() : null);
+        request.setAiStatus(AiStatus.PROCESSING);
+        requestRepository.save(request);
 
-        byte[] photoBytes = hasPhoto ? bytesOf(photo) : null;
-        byte[] voiceBytes = hasVoice ? bytesOf(voiceNote) : null;
         if (hasPhoto) {
-            request.setPhotoPath(fileStorage.saveForRequest(request.getId(), "photo", PHOTO_TYPES.get(photoType), photoBytes));
+            request.setPhotoPath(fileStorage.saveForRequest(request.getId(), "photo", PHOTO_TYPES.get(photoType), bytesOf(photo)));
         }
         if (hasVoice) {
-            request.setVoiceNotePath(fileStorage.saveForRequest(request.getId(), "voice", "wav", voiceBytes));
+            request.setVoiceNotePath(fileStorage.saveForRequest(request.getId(), "voice", "wav", bytesOf(voiceNote)));
         }
         requestRepository.save(request);
 
-        // 4. AI steps. If one fails, keep the request and report the error instead of losing it.
-        String aiError = null;
-        try {
-            if (hasVoice) {
-                log.info("Request {}: Muse Voice Transcribe -> transcribing voice note", request.getId());
-                request.setTranscript(voiceTranscribeClient.transcribe(voiceBytes));
-                log.info("Request {}: transcript = \"{}\"", request.getId(), request.getTranscript());
-            }
-            log.info("Request {}: Muse Spark -> analyzing report{}", request.getId(), hasPhoto ? " and photo" : "");
-            IssueAnalysis analysis = issueAnalyzer.analyze(request.getDescription(), request.getTranscript(),
-                    photoBytes, photoType);
-            log.info("Request {}: analysis = {}", request.getId(), analysis);
-            request.setAiSummary(analysis.summary());
-            request.setCategory(analysis.category());
-            request.setUrgency(analysis.urgency());
-            request.setUrgencyReason(analysis.urgencyReason());
-            request.setPhotoObservations(blankToNull(analysis.photoObservations()));
-            request.setDamagePhrase(blankToNull(analysis.damagePhrase()));
-            requestRepository.save(request);
-        } catch (RuntimeException e) {
-            log.error("AI analysis failed for request {}", request.getId(), e);
-            aiError = "AI analysis failed: " + e.getMessage();
-            requestRepository.save(request);
-            return MaintenanceRequestResponse.from(request, aiError, null);
-        }
-
-        // 5. SAM 3.1 outlines the damage in the photo. Nice to have: if it fails, carry on without it.
-        if (hasPhoto && request.getDamagePhrase() != null) {
-            try {
-                log.info("Request {}: SAM 3.1 -> segmenting \"{}\" in photo", request.getId(), request.getDamagePhrase());
-                request.setDamageSegmentation(samClient.segment(photoBytes, photoType, request.getDamagePhrase()));
-                log.info("Request {}: SAM 3.1 {}", request.getId(),
-                        request.getDamageSegmentation() == null ? "found no match" : "found the damage");
-                requestRepository.save(request);
-            } catch (RuntimeException e) {
-                log.warn("SAM segmentation failed for request {}", request.getId(), e);
-            }
-        }
-
-        // 6. The agent checks the lease, history, and vendors, and drafts a work order + reply
-        try {
-            log.info("Request {}: Muse Spark agent -> drafting work order", request.getId());
-            maintenanceAgent.run(request);
-            log.info("Request {}: draft ready for manager approval", request.getId());
-        } catch (RuntimeException e) {
-            log.error("Agent failed for request {}", request.getId(), e);
-            aiError = "Agent failed: " + e.getMessage();
-        }
-
-        return MaintenanceRequestResponse.from(request, aiError, null);
+        requestProcessor.processInBackground(request.getId());
+        return MaintenanceRequestResponse.from(request, null);
     }
 
     private static boolean isWav(MultipartFile file) {
@@ -183,9 +117,5 @@ public class MaintenanceIntakeService {
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read upload", e);
         }
-    }
-
-    private static String blankToNull(String text) {
-        return (text == null || text.isBlank()) ? null : text;
     }
 }

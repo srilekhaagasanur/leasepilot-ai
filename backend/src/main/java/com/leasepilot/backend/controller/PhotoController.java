@@ -36,7 +36,7 @@ public class PhotoController {
                 .filter(r -> canSee(me, r))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No photo for this request"));
         return ResponseEntity.ok()
-                .contentType(mediaTypeFor(request.getPhotoPath()))
+                .contentType(MediaType.parseMediaType(FileStorageService.photoTypeOf(request.getPhotoPath())))
                 .body(fileStorage.read(request.getPhotoPath()));
     }
 
@@ -45,12 +45,5 @@ public class PhotoController {
         return me.role() == Role.MANAGER
                 ? r.getUnit().getProperty().getManager().getId().equals(me.id())
                 : r.getTenant().getId().equals(me.id());
-    }
-
-    private static MediaType mediaTypeFor(String path) {
-        if (path.endsWith(".png")) return MediaType.IMAGE_PNG;
-        if (path.endsWith(".gif")) return MediaType.IMAGE_GIF;
-        if (path.endsWith(".webp")) return MediaType.parseMediaType("image/webp");
-        return MediaType.IMAGE_JPEG;
     }
 }

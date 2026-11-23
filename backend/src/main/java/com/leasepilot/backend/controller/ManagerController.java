@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.leasepilot.backend.dto.AgentDraftResponse;
 import com.leasepilot.backend.dto.DecisionRequest;
+import com.leasepilot.backend.dto.ProcessingRequestResponse;
 import com.leasepilot.backend.model.ApprovalStatus;
 import com.leasepilot.backend.security.AppUserPrincipal;
 import com.leasepilot.backend.service.ApprovalService;
@@ -50,10 +51,16 @@ public class ManagerController {
         return approvalService.rejectDraft(draftId, me.id(), noteOf(body));
     }
 
-    // POST /api/manager/requests/{id}/rerun-agent
-    @PostMapping("/requests/{requestId}/rerun-agent")
-    public AgentDraftResponse rerunAgent(@AuthenticationPrincipal AppUserPrincipal me, @PathVariable Long requestId) {
-        return approvalService.rerunAgent(requestId, me.id());
+    // GET /api/manager/requests/unfinished  -> requests the AI is still preparing, or couldn't finish
+    @GetMapping("/requests/unfinished")
+    public List<ProcessingRequestResponse> unfinishedRequests(@AuthenticationPrincipal AppUserPrincipal me) {
+        return approvalService.unfinishedRequests(me.id());
+    }
+
+    // POST /api/manager/requests/{id}/retry-ai  -> run the AI again on a request it couldn't finish
+    @PostMapping("/requests/{requestId}/retry-ai")
+    public ProcessingRequestResponse retryAi(@AuthenticationPrincipal AppUserPrincipal me, @PathVariable Long requestId) {
+        return approvalService.retryAi(requestId, me.id());
     }
 
     private static String noteOf(DecisionRequest body) {

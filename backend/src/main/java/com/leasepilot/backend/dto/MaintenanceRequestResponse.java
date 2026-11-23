@@ -2,6 +2,7 @@ package com.leasepilot.backend.dto;
 
 import java.time.Instant;
 
+import com.leasepilot.backend.model.AiStatus;
 import com.leasepilot.backend.model.MaintenanceRequest;
 import com.leasepilot.backend.model.RequestStatus;
 import com.leasepilot.backend.model.ServiceCategory;
@@ -26,12 +27,12 @@ public record MaintenanceRequestResponse(
         String damageSegmentation,
         RequestStatus status,
         Instant createdAt,
-        // Set only if an AI step failed; the request is still saved
-        String aiError,
+        // PROCESSING while the AI works on it in the background (null for old requests)
+        AiStatus aiStatus,
         // The manager-approved reply to the tenant (null until approved)
         String replyFromManagement) {
 
-    public static MaintenanceRequestResponse from(MaintenanceRequest r, String aiError, String replyFromManagement) {
+    public static MaintenanceRequestResponse from(MaintenanceRequest r, String replyFromManagement) {
         return new MaintenanceRequestResponse(
                 r.getId(),
                 r.getUnit().getUnitNumber(),
@@ -49,7 +50,7 @@ public record MaintenanceRequestResponse(
                 r.getDamageSegmentation(),
                 r.getStatus(),
                 r.getCreatedAt(),
-                aiError,
+                r.getAiStatus(),
                 replyFromManagement);
     }
 }

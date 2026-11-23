@@ -48,6 +48,14 @@ public class FileStorageService {
         }
     }
 
+    // The image type of a saved photo, from the extension we saved it with (see MaintenanceIntakeService)
+    public static String photoTypeOf(String path) {
+        if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".gif")) return "image/gif";
+        if (path.endsWith(".webp")) return "image/webp";
+        return "image/jpeg";
+    }
+
     // Deletes one request's photo and voice note (used by the demo reset)
     public void deleteRequestFiles(Long requestId) {
         Path folder = uploadRoot.resolve("requests").resolve(requestId.toString());

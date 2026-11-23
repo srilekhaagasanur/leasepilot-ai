@@ -60,6 +60,9 @@ export const api = {
   drafts: (status = 'PENDING') => request(`/api/manager/drafts?status=${status}`),
   approveDraft: (draftId, note) => postJson(`/api/manager/drafts/${draftId}/approve`, { note }),
   rejectDraft: (draftId, note) => postJson(`/api/manager/drafts/${draftId}/reject`, { note }),
+  // Requests the AI is still preparing in the background, or couldn't finish
+  unfinishedRequests: () => request('/api/manager/requests/unfinished'),
+  retryAi: (requestId) => postJson(`/api/manager/requests/${requestId}/retry-ai`),
 
   // The owner's properties, units, and tenants. Each change returns the full updated list.
   properties: () => request('/api/manager/properties'),
