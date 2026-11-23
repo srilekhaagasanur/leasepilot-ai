@@ -11,16 +11,13 @@ import org.springframework.web.server.ResponseStatusException;
 import com.leasepilot.backend.agent.MaintenanceAgent;
 import com.leasepilot.backend.agent.ToolStep;
 import com.leasepilot.backend.dto.AgentDraftResponse;
-import com.leasepilot.backend.dto.TenancyResponse;
 import com.leasepilot.backend.model.AgentDraft;
 import com.leasepilot.backend.model.ApprovalStatus;
 import com.leasepilot.backend.model.MaintenanceRequest;
 import com.leasepilot.backend.model.RequestStatus;
-import com.leasepilot.backend.model.Tenancy;
 import com.leasepilot.backend.model.Unit;
 import com.leasepilot.backend.repository.AgentDraftRepository;
 import com.leasepilot.backend.repository.MaintenanceRequestRepository;
-import com.leasepilot.backend.repository.TenancyRepository;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
@@ -31,16 +28,14 @@ import tools.jackson.databind.json.JsonMapper;
 public class ApprovalService {
 
     private final AgentDraftRepository draftRepository;
-    private final TenancyRepository tenancyRepository;
     private final MaintenanceRequestRepository requestRepository;
     private final MaintenanceAgent maintenanceAgent;
     private final JsonMapper jsonMapper;
 
-    public ApprovalService(AgentDraftRepository draftRepository, TenancyRepository tenancyRepository,
+    public ApprovalService(AgentDraftRepository draftRepository,
                            MaintenanceRequestRepository requestRepository, MaintenanceAgent maintenanceAgent,
                            JsonMapper jsonMapper) {
         this.draftRepository = draftRepository;
-        this.tenancyRepository = tenancyRepository;
         this.requestRepository = requestRepository;
         this.maintenanceAgent = maintenanceAgent;
         this.jsonMapper = jsonMapper;
@@ -88,30 +83,6 @@ public class ApprovalService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This request hasn't been analyzed yet");
         }
         return toResponse(maintenanceAgent.run(request));
-    }
-
-    // --- Tenants joining units ---
-
-    public List<TenancyResponse> pendingTenancies(Long managerId) {
-        return tenancyRepository.findByUnitPropertyManagerIdAndStatus(managerId, ApprovalStatus.PENDING).stream()
-                .map(TenancyResponse::from)
-                .toList();
-    }
-
-    @Transactional
-    public TenancyResponse decideTenancy(Long tenancyId, Long managerId, boolean approve) {
-        Tenancy tenancy = tenancyRepository.findById(tenancyId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Join request not found"));
-        checkManages(tenancy.getUnit(), managerId);
-        if (tenancy.getStatus() != ApprovalStatus.PENDING) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This join request was already decided");
-        }
-        if (approve) {
-            tenancy.approve();
-        } else {
-            tenancy.reject();
-        }
-        return TenancyResponse.from(tenancy);
     }
 
     // --- Helpers ---

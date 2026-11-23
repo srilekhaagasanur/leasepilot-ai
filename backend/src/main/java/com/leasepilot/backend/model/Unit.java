@@ -10,7 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-// One apartment inside a property. Tenants join it with its invite code.
+// One apartment inside a property. The owner adds tenants to it (see TenantInvite).
 @Entity
 @Table(name = "units")
 public class Unit {
@@ -26,22 +26,16 @@ public class Unit {
     @JoinColumn(name = "property_id")
     private Property property;
 
-    // The manager shares this code with the real tenant, e.g. "OAK-2B-7F3K"
-    @Column(nullable = false, unique = true)
-    private String inviteCode;
-
     protected Unit() {
         // required by JPA
     }
 
-    public Unit(String unitNumber, Property property, String inviteCode) {
+    public Unit(String unitNumber, Property property) {
         this.unitNumber = unitNumber;
         this.property = property;
-        this.inviteCode = inviteCode;
     }
 
     public Long getId() { return id; }
     public String getUnitNumber() { return unitNumber; }
     public Property getProperty() { return property; }
-    public String getInviteCode() { return inviteCode; }
 }

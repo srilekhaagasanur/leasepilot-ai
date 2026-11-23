@@ -11,55 +11,53 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.leasepilot.backend.model.AppUser;
-import com.leasepilot.backend.model.Lease;
-import com.leasepilot.backend.model.LeaseClause;
 import com.leasepilot.backend.model.MaintenanceRequest;
 import com.leasepilot.backend.model.Property;
 import com.leasepilot.backend.model.RequestStatus;
 import com.leasepilot.backend.model.Role;
 import com.leasepilot.backend.model.ServiceCategory;
-import com.leasepilot.backend.model.Tenancy;
+import com.leasepilot.backend.model.TenantInvite;
 import com.leasepilot.backend.model.Unit;
 import com.leasepilot.backend.model.Urgency;
 import com.leasepilot.backend.model.Vendor;
 import com.leasepilot.backend.repository.AppUserRepository;
-import com.leasepilot.backend.repository.LeaseClauseRepository;
-import com.leasepilot.backend.repository.LeaseRepository;
 import com.leasepilot.backend.repository.MaintenanceRequestRepository;
 import com.leasepilot.backend.repository.PropertyRepository;
-import com.leasepilot.backend.repository.TenancyRepository;
+import com.leasepilot.backend.repository.TenantInviteRepository;
 import com.leasepilot.backend.repository.UnitRepository;
 import com.leasepilot.backend.repository.VendorRepository;
+import com.leasepilot.backend.service.TenantOnboardingService;
 
 // Fills an empty database with demo data when the app starts.
 // Does nothing if any users already exist, so restarts don't create duplicates.
+// The demo property is built the same way a real owner would: units, then tenants added by email.
 // All names, addresses, and phone numbers are fictional.
 @Component
 public class DemoDataSeeder implements CommandLineRunner {
+
+    public static final String DEMO_MANAGER_EMAIL = "dana.whitfield@example.com";
 
     private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);
 
     private final AppUserRepository userRepository;
     private final PropertyRepository propertyRepository;
     private final UnitRepository unitRepository;
-    private final TenancyRepository tenancyRepository;
-    private final LeaseRepository leaseRepository;
-    private final LeaseClauseRepository clauseRepository;
+    private final TenantInviteRepository inviteRepository;
     private final VendorRepository vendorRepository;
     private final MaintenanceRequestRepository requestRepository;
+    private final TenantOnboardingService onboarding;
 
     public DemoDataSeeder(AppUserRepository userRepository, PropertyRepository propertyRepository,
-                          UnitRepository unitRepository, TenancyRepository tenancyRepository,
-                          LeaseRepository leaseRepository, LeaseClauseRepository clauseRepository,
-                          VendorRepository vendorRepository, MaintenanceRequestRepository requestRepository) {
+                          UnitRepository unitRepository, TenantInviteRepository inviteRepository,
+                          VendorRepository vendorRepository, MaintenanceRequestRepository requestRepository,
+                          TenantOnboardingService onboarding) {
         this.userRepository = userRepository;
         this.propertyRepository = propertyRepository;
         this.unitRepository = unitRepository;
-        this.tenancyRepository = tenancyRepository;
-        this.leaseRepository = leaseRepository;
-        this.clauseRepository = clauseRepository;
+        this.inviteRepository = inviteRepository;
         this.vendorRepository = vendorRepository;
         this.requestRepository = requestRepository;
+        this.onboarding = onboarding;
     }
 
     @Override
@@ -70,35 +68,7 @@ public class DemoDataSeeder implements CommandLineRunner {
             return;
         }
 
-        // --- People ---
-        AppUser manager = userRepository.save(new AppUser("dana.whitfield@example.com", "Dana Whitfield", Role.MANAGER));
-        AppUser marcus = userRepository.save(new AppUser("marcus.reed@example.com", "Marcus Reed", Role.TENANT));
-        AppUser priya = userRepository.save(new AppUser("priya.shah@example.com", "Priya Shah", Role.TENANT));
-        AppUser elena = userRepository.save(new AppUser("elena.novak@example.com", "Elena Novak", Role.TENANT));
-        AppUser jordan = userRepository.save(new AppUser("jordan.kim@example.com", "Jordan Kim", Role.TENANT));
-
-        // --- Building and units ---
-        Property oakwood = propertyRepository.save(
-                new Property("Oakwood Apartments", "1420 Oakwood Ave, Columbus, OH 43201", manager));
-        Unit unit1A = unitRepository.save(new Unit("1A", oakwood, "OAK-1A-4H2M"));
-        Unit unit2B = unitRepository.save(new Unit("2B", oakwood, "OAK-2B-7F3K"));
-        Unit unit3C = unitRepository.save(new Unit("3C", oakwood, "OAK-3C-9P6R"));
-        Unit unit4D = unitRepository.save(new Unit("4D", oakwood, "OAK-4D-2X8T"));
-
-        // --- Who lives where (Jordan's request for 4D is still waiting for approval) ---
-        approvedTenancy(marcus, unit1A);
-        approvedTenancy(priya, unit2B);
-        approvedTenancy(elena, unit3C);
-        tenancyRepository.save(new Tenancy(jordan, unit4D));
-
-        // --- Leases, each with the same standard clauses ---
-        LocalDate start = LocalDate.of(2026, 1, 1);
-        LocalDate end = LocalDate.of(2026, 12, 31);
-        addLeaseWithClauses(unit1A, marcus, start, end, new BigDecimal("1350.00"));
-        addLeaseWithClauses(unit2B, priya, start, end, new BigDecimal("1475.00"));
-        addLeaseWithClauses(unit3C, elena, start, end, new BigDecimal("1425.00"));
-
-        // --- Vendors, one per category ---
+        // --- Vendors, one per category (shared by every property) ---
         vendorRepository.save(new Vendor("ClearFlow Plumbing", ServiceCategory.PLUMBING, "(614) 555-0142", "dispatch@clearflow.example.com"));
         vendorRepository.save(new Vendor("BrightSpark Electric", ServiceCategory.ELECTRICAL, "(614) 555-0187", "jobs@brightspark.example.com"));
         vendorRepository.save(new Vendor("Comfort Air HVAC", ServiceCategory.HVAC, "(614) 555-0123", "service@comfortair.example.com"));
@@ -106,20 +76,36 @@ public class DemoDataSeeder implements CommandLineRunner {
         vendorRepository.save(new Vendor("GreenShield Pest Control", ServiceCategory.PEST_CONTROL, "(614) 555-0119", "help@greenshield.example.com"));
         vendorRepository.save(new Vendor("HandyPro General Repairs", ServiceCategory.GENERAL, "(614) 555-0155", "office@handypro.example.com"));
 
-        seedPastRequests();
+        // --- The demo property manager ---
+        AppUser dana = new AppUser(DEMO_MANAGER_EMAIL, "Dana Whitfield", Role.MANAGER);
+        dana.markAsDemo();
+        seedDemoProperty(userRepository.save(dana));
 
-        log.info("Seeded demo data: 5 users, 1 property, 4 units, 3 leases, 6 vendors, 4 past requests");
+        log.info("Seeded demo data: 6 vendors, Dana's Oakwood Apartments with 4 units, 3 tenants, 1 open invite");
     }
 
-    // Past repairs. Unit 2B has a kitchen sink that keeps leaking, so the agent
-    // has a pattern to notice when Priya reports it again.
-    // Also called by the demo reset, so it looks people and units up instead of taking them as arguments.
-    public void seedPastRequests() {
-        Unit unit1A = unitByInviteCode("OAK-1A-4H2M");
-        Unit unit2B = unitByInviteCode("OAK-2B-7F3K");
-        AppUser marcus = userByEmail("marcus.reed@example.com");
-        AppUser priya = userByEmail("priya.shah@example.com");
+    // Oakwood Apartments with its tenants and past repairs. Also used by the demo reset.
+    public void seedDemoProperty(AppUser manager) {
+        Property oakwood = propertyRepository.save(
+                new Property("Oakwood Apartments", "1420 Oakwood Ave, Columbus, OH 43201", manager));
+        Unit unit1A = unitRepository.save(new Unit("1A", oakwood));
+        Unit unit2B = unitRepository.save(new Unit("2B", oakwood));
+        Unit unit3C = unitRepository.save(new Unit("3C", oakwood));
+        Unit unit4D = unitRepository.save(new Unit("4D", oakwood));
 
+        LocalDate start = LocalDate.of(2026, 1, 1);
+        LocalDate end = LocalDate.of(2026, 12, 31);
+        AppUser marcus = demoTenant(unit1A, "Marcus Reed", "marcus.reed@example.com", "(614) 555-0131", start, end, "1350.00");
+        AppUser priya = demoTenant(unit2B, "Priya Shah", "priya.shah@example.com", "(614) 555-0132", start, end, "1475.00");
+        demoTenant(unit3C, "Elena Novak", "elena.novak@example.com", "(614) 555-0133", start, end, "1425.00");
+
+        // Jordan was added by the owner but hasn't signed up yet.
+        // Sign up as a tenant with this email to see the account get connected to 4D.
+        inviteRepository.save(new TenantInvite(unit4D, "Jordan Kim", "jordan.kim@example.com", "(614) 555-0134",
+                LocalDate.of(2026, 12, 1), LocalDate.of(2027, 11, 30), new BigDecimal("1395.00")));
+
+        // --- Past repairs. Unit 2B has a kitchen sink that keeps leaking, so the agent
+        //     has a pattern to notice when Priya reports it again. ---
         pastRequest(unit2B, priya, "Water is leaking under the kitchen sink and the cabinet floor is wet.",
                 "Leak under kitchen sink", ServiceCategory.PLUMBING, Urgency.MEDIUM, "2026-03-14", "2026-03-16");
         pastRequest(unit2B, priya, "Kitchen sink is leaking again, same spot as in March. Put a bucket under it.",
@@ -130,51 +116,17 @@ public class DemoDataSeeder implements CommandLineRunner {
                 "AC not cooling", ServiceCategory.HVAC, Urgency.MEDIUM, "2026-07-09", "2026-07-11");
     }
 
-    private Unit unitByInviteCode(String inviteCode) {
-        return unitRepository.findByInviteCode(inviteCode)
-                .orElseThrow(() -> new IllegalStateException("Demo unit missing: " + inviteCode));
-    }
-
-    private AppUser userByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Demo user missing: " + email));
-    }
-
-    private void approvedTenancy(AppUser tenant, Unit unit) {
-        Tenancy tenancy = new Tenancy(tenant, unit);
-        tenancy.approve();
-        tenancyRepository.save(tenancy);
-    }
-
-    private void addLeaseWithClauses(Unit unit, AppUser tenant, LocalDate start, LocalDate end, BigDecimal rent) {
-        Lease lease = leaseRepository.save(new Lease(unit, tenant, start, end, rent));
-
-        clauseRepository.save(new LeaseClause(lease, "7.1", "Landlord Repair Obligations",
-                "Landlord shall keep the plumbing, electrical, heating, and cooling systems and all "
-                + "landlord-supplied appliances in good working order, and shall make necessary repairs "
-                + "within a reasonable time after receiving notice from Tenant."));
-        clauseRepository.save(new LeaseClause(lease, "7.2", "Plumbing",
-                "Landlord is responsible for repairing leaks, pipes, the water heater, and fixtures that fail "
-                + "from normal wear and tear. Tenant is responsible for clogs caused by improper disposal, "
-                + "including grease, wipes, or hygiene products."));
-        clauseRepository.save(new LeaseClause(lease, "7.3", "Tenant-Caused Damage",
-                "Tenant shall pay the reasonable cost of repairing any damage beyond normal wear and tear "
-                + "caused by Tenant, household members, guests, or pets."));
-        clauseRepository.save(new LeaseClause(lease, "7.4", "Appliances",
-                "Landlord shall repair or replace landlord-supplied appliances (refrigerator, stove, "
-                + "dishwasher, washer, dryer) unless the failure results from Tenant misuse. "
-                + "Tenant-owned appliances are Tenant's responsibility."));
-        clauseRepository.save(new LeaseClause(lease, "7.5", "Pest Control",
-                "Landlord is responsible for pest treatment, except where an infestation results from "
-                + "Tenant's failure to keep the unit reasonably clean."));
-        clauseRepository.save(new LeaseClause(lease, "7.6", "Emergency Repairs and Access",
-                "Emergencies include no heat when the outdoor temperature is below 50°F, a major water leak, "
-                + "a gas smell, an electrical hazard, or no running water. Tenant must report emergencies "
-                + "immediately. Landlord will respond within 24 hours and may enter the unit without "
-                + "advance notice to address an emergency."));
-        clauseRepository.save(new LeaseClause(lease, "7.7", "Tenant Minor Maintenance",
-                "Tenant shall replace light bulbs and smoke detector batteries, replace HVAC filters every "
-                + "three months, and keep drains free of obstructions."));
+    // A tenant the owner invited who has already signed up. Demo tenants have no password;
+    // they log in with the "Try as..." buttons.
+    private AppUser demoTenant(Unit unit, String fullName, String email, String phone,
+                               LocalDate start, LocalDate end, String rent) {
+        TenantInvite invite = inviteRepository.save(
+                new TenantInvite(unit, fullName, email, phone, start, end, new BigDecimal(rent)));
+        AppUser tenant = new AppUser(email, fullName, Role.TENANT);
+        tenant.markAsDemo();
+        userRepository.save(tenant);
+        onboarding.connect(invite, tenant);
+        return tenant;
     }
 
     private void pastRequest(Unit unit, AppUser tenant, String description, String summary,

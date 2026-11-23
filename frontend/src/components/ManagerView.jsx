@@ -1,40 +1,38 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import DraftCard from './DraftCard'
+import PropertiesView from './PropertiesView'
 
 const TABS = [
   { id: 'queue', label: 'Approval queue' },
-  { id: 'tenants', label: 'Move-in requests' },
   { id: 'history', label: 'History' },
+  { id: 'properties', label: 'Properties' },
 ]
 
-export default function ManagerView({ user, onTenancyChanged }) {
+export default function ManagerView() {
   const [tab, setTab] = useState('queue')
   const [drafts, setDrafts] = useState([])
   const [history, setHistory] = useState([])
-  const [tenancies, setTenancies] = useState([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [pending, approved, rejected, joins] = await Promise.all([
-        api.drafts(user.id, 'PENDING'),
-        api.drafts(user.id, 'APPROVED'),
-        api.drafts(user.id, 'REJECTED'),
-        api.pendingTenancies(user.id),
+      const [pending, approved, rejected] = await Promise.all([
+        api.drafts('PENDING'),
+        api.drafts('APPROVED'),
+        api.drafts('REJECTED'),
       ])
       setDrafts(pending)
       setHistory([...approved, ...rejected].sort((a, b) => new Date(b.decidedAt) - new Date(a.decidedAt)))
-      setTenancies(joins)
     } finally {
       setLoading(false)
     }
-  }, [user.id])
+  }, [])
 
   useEffect(() => { load() }, [load])
 
-  const counts = { queue: drafts.length, tenants: tenancies.length, history: history.length }
+  const counts = { queue: drafts.length, history: history.length }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -48,61 +46,25 @@ export default function ManagerView({ user, onTenancyChanged }) {
             </button>
           ))}
         </nav>
-        <button onClick={load} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">↻ Refresh</button>
+        {tab !== 'properties' && <button onClick={load} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">↻ Refresh</button>}
       </div>
 
-      {loading && <p className="text-slate-500">Loading…</p>}
+      {loading && tab !== 'properties' && <p className="text-slate-500">Loading…</p>}
 
       {!loading && tab === 'queue' && (
         drafts.length === 0
-          ? <Empty text="Nothing waiting for approval. New tenant reports will show up here once the AI has prepared them." />
-          : <div className="space-y-6">{drafts.map((d) => <DraftCard key={d.draftId} draft={d} managerId={user.id} onDecided={load} />)}</div>
+          ? <Empty text="Nothing waiting for approval. New tenant reports will show up here once the AI has prepared them. To get started, add your building, units, and tenants under Properties." />
+          : <div className="space-y-6">{drafts.map((d) => <DraftCard key={d.draftId} draft={d} onDecided={load} />)}</div>
       )}
 
       {!loading && tab === 'history' && (
         history.length === 0
           ? <Empty text="No decisions yet." />
-          : <div className="space-y-6">{history.map((d) => <DraftCard key={d.draftId} draft={d} managerId={user.id} onDecided={load} />)}</div>
+          : <div className="space-y-6">{history.map((d) => <DraftCard key={d.draftId} draft={d} onDecided={load} />)}</div>
       )}
 
-      {!loading && tab === 'tenants' && (
-        tenancies.length === 0
-          ? <Empty text="No move-in requests waiting for approval." />
-          : <ul className="space-y-3">
-              {tenancies.map((t) => (
-                <TenancyItem key={t.tenancyId} tenancy={t} managerId={user.id}
-                  onDecided={() => { load(); onTenancyChanged() }} />
-              ))}
-            </ul>
-      )}
+      {tab === 'properties' && <PropertiesView />}
     </div>
-  )
-}
-
-function TenancyItem({ tenancy: t, managerId, onDecided }) {
-  const [busy, setBusy] = useState(false)
-
-  async function decide(approve) {
-    setBusy(true)
-    await (approve ? api.approveTenancy : api.rejectTenancy)(t.tenancyId, managerId)
-    onDecided()
-  }
-
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div>
-        <p className="font-semibold">{t.tenantName} <span className="font-normal text-slate-500">({t.tenantEmail})</span></p>
-        <p className="text-sm text-slate-600">
-          Wants to join <strong>Unit {t.unitNumber}</strong>, {t.propertyName} · used the unit's invite code · requested {new Date(t.requestedAt).toLocaleDateString()}
-        </p>
-      </div>
-      <div className="flex gap-2">
-        <button onClick={() => decide(true)} disabled={busy}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button>
-        <button onClick={() => decide(false)} disabled={busy}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Reject</button>
-      </div>
-    </li>
   )
 }
 

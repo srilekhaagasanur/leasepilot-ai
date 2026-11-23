@@ -60,12 +60,6 @@ public class Tenancy {
         this.decidedAt = Instant.now();
     }
 
-    // Used by the demo reset to put a decided request back in the manager's queue
-    public void resetToPending() {
-        this.status = ApprovalStatus.PENDING;
-        this.decidedAt = null;
-    }
-
     public Long getId() { return id; }
     public AppUser getTenant() { return tenant; }
     public Unit getUnit() { return unit; }

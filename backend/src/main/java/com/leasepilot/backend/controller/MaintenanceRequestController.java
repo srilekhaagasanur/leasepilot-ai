@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.leasepilot.backend.dto.MaintenanceRequestResponse;
+import com.leasepilot.backend.security.AppUserPrincipal;
 import com.leasepilot.backend.service.MaintenanceIntakeService;
 
 @RestController
@@ -26,8 +28,7 @@ public class MaintenanceRequestController {
         this.intakeService = intakeService;
     }
 
-    // POST /api/tenant/requests (multipart form)
-    //   tenantId    - which demo tenant is submitting (no login, so the frontend sends it)
+    // POST /api/tenant/requests (multipart form), as the logged-in tenant
     //   description - optional text
     //   photo       - optional image file
     //   voiceNote   - optional WAV file
@@ -35,16 +36,16 @@ public class MaintenanceRequestController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public MaintenanceRequestResponse submit(
-            @RequestParam Long tenantId,
+            @AuthenticationPrincipal AppUserPrincipal me,
             @RequestParam(required = false) String description,
             @RequestPart(required = false) MultipartFile photo,
             @RequestPart(required = false) MultipartFile voiceNote) {
-        return intakeService.submit(tenantId, description, photo, voiceNote);
+        return intakeService.submit(me.id(), description, photo, voiceNote);
     }
 
-    // GET /api/tenant/requests?tenantId=3 -> this tenant's requests, newest first
+    // GET /api/tenant/requests -> the logged-in tenant's requests, newest first
     @GetMapping
-    public List<MaintenanceRequestResponse> list(@RequestParam Long tenantId) {
-        return intakeService.listForTenant(tenantId);
+    public List<MaintenanceRequestResponse> list(@AuthenticationPrincipal AppUserPrincipal me) {
+        return intakeService.listForTenant(me.id());
     }
 }

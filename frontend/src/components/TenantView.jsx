@@ -7,18 +7,17 @@ export default function TenantView({ user }) {
   const [requests, setRequests] = useState([])
 
   const loadRequests = useCallback(() => {
-    api.myRequests(user.id).then(setRequests).catch(() => setRequests([]))
-  }, [user.id])
+    api.myRequests().then(setRequests).catch(() => setRequests([]))
+  }, [])
 
   useEffect(loadRequests, [loadRequests])
 
   if (user.tenancyStatus !== 'APPROVED') {
     return (
       <div className="mx-auto max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-6">
-        <h2 className="text-lg font-semibold text-amber-900">Waiting for approval</h2>
+        <h2 className="text-lg font-semibold text-amber-900">Not connected to a unit</h2>
         <p className="mt-2 text-amber-800">
-          Your request to join Unit {user.unitNumber} is waiting for the property manager's approval.
-          You'll be able to report maintenance issues once it's approved.
+          Your account isn't connected to a unit. Ask your landlord to check that they added you in LeasePilot.
         </p>
       </div>
     )
@@ -60,7 +59,7 @@ function ReportForm({ user, onSubmitted }) {
     setError(null)
     setResult(null)
     try {
-      const saved = await api.submitRequest({ tenantId: user.id, description: description.trim(), photo, voiceNote })
+      const saved = await api.submitRequest({ description: description.trim(), photo, voiceNote })
       setResult(saved)
       setDescription('')
       setPhoto(null)

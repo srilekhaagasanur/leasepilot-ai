@@ -88,27 +88,37 @@ npm run dev
 
 Open http://localhost:5173.
 
+## Accounts
+
+- **Owners** create an account, then open the **Properties** tab to add their buildings, units, and tenants. For each tenant they enter a name, email, phone, and lease dates and rent.
+- **Tenants** can only create an account with an email their owner added. They're connected to their unit and lease automatically.
+- **Forgot password** sends a one-time link that expires after 30 minutes. Without email settings, the email is printed in the backend terminal instead of being sent (see the roadmap).
+- Logins use a secure session cookie. Passwords are stored as BCrypt hashes, and every change is protected against CSRF.
+
+New tenants get a standard set of lease repair clauses, which the AI agent uses to decide who pays for a repair.
+
 ## Using the demo
 
-There's no login yet, so pick who you are on the start page:
+On the start page, **Try the demo** logs you into a sample account without a password:
 
 - **Dana Whitfield** is the property manager of Oakwood Apartments.
 - **Priya Shah (Unit 2B)** has a kitchen sink that has leaked twice before. Report it again and the agent notices the pattern.
 - **Marcus Reed (1A)** and **Elena Novak (3C)** are other tenants.
-- **Jordan Kim (4D)** is waiting for the manager to approve their move-in, so they can't submit requests yet.
+- **Jordan Kim** has been added to Unit 4D by Dana but hasn't signed up. Create a tenant account with `jordan.kim@example.com` to see a tenant get connected automatically.
 
-**Reset demo**, at the bottom of the start page, deletes all new requests, drafts, and uploaded photos and restores the original sample data.
+**Reset demo**, at the bottom of the start page, rebuilds Dana's Oakwood Apartments from scratch: new requests, drafts, photos, and anyone who signed up there are removed. Other owners' data isn't touched. Set `app.demo-enabled=false` to turn demo mode off.
 
 ## Status and roadmap
 
-Working today: the full report → AI analysis → SAM highlight → agent draft → manager approval flow.
+Working today: accounts for owners and tenants, property and tenant setup, and the full report → AI analysis → SAM highlight → agent draft → manager approval flow.
 
 Next:
 
-- [ ] Real accounts and login (owners invite tenants by email)
+- [ ] Email verification when a tenant signs up (today anyone who knows an invited email could claim it)
 - [ ] Run the AI in the background so submitting is instant
 - [ ] Database migrations (Flyway) and automated tests
 - [ ] Upload your own lease PDF instead of the sample clauses
+- [ ] Send real emails: create a dedicated Gmail for the app, turn on 2-Step Verification, create an App Password, and start the backend with `MAIL_HOST=smtp.gmail.com`, `MAIL_USERNAME`, `MAIL_PASSWORD` (the App Password), and `MAIL_FROM` set. Until then, emails such as password-reset links are printed in the backend terminal.
 - [ ] Send approved replies and work orders by email
 - [ ] Work order tracking and before/after photo verification
 - [ ] Deployment

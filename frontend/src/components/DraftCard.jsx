@@ -11,7 +11,7 @@ const TOOL_LABELS = {
 }
 
 // One item in the approval queue: the tenant's report, the agent's proposal, and approve/reject
-export default function DraftCard({ draft: d, managerId, onDecided }) {
+export default function DraftCard({ draft: d, onDecided }) {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -21,7 +21,7 @@ export default function DraftCard({ draft: d, managerId, onDecided }) {
     setBusy(true)
     setError(null)
     try {
-      await (approve ? api.approveDraft : api.rejectDraft)(d.draftId, managerId, note.trim() || null)
+      await (approve ? api.approveDraft : api.rejectDraft)(d.draftId, note.trim() || null)
       onDecided()
     } catch (err) {
       setError(err.message)

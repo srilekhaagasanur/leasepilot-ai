@@ -48,9 +48,9 @@ public class FileStorageService {
         }
     }
 
-    // Deletes every request's photo and voice note (used by the demo reset)
-    public void deleteAllRequestFiles() {
-        Path folder = uploadRoot.resolve("requests");
+    // Deletes one request's photo and voice note (used by the demo reset)
+    public void deleteRequestFiles(Long requestId) {
+        Path folder = uploadRoot.resolve("requests").resolve(requestId.toString());
         if (!Files.exists(folder)) {
             return;
         }

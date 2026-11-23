@@ -11,8 +11,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-// A person using the app: either a property manager or a tenant.
-// No login for the hackathon demo; demo users are hard-coded in seed data.
+// A person using the app: either a property manager (owner) or a tenant.
+// Demo users (from the seed data) have no password; they log in with the "Try as..." buttons.
 // Named AppUser (table app_users) because "user" is a reserved word in some databases.
 @Entity
 @Table(name = "app_users")
@@ -32,6 +32,13 @@ public class AppUser {
     @Column(nullable = false)
     private Role role;
 
+    // BCrypt hash of the password, never the password itself. Null for demo users.
+    private String passwordHash;
+
+    // Demo users can be logged into without a password (see AuthController.demoLogin)
+    @Column(nullable = false)
+    private boolean demo = false;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -49,5 +56,10 @@ public class AppUser {
     public String getEmail() { return email; }
     public String getFullName() { return fullName; }
     public Role getRole() { return role; }
+    public String getPasswordHash() { return passwordHash; }
+    public boolean isDemo() { return demo; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void markAsDemo() { this.demo = true; }
 }
