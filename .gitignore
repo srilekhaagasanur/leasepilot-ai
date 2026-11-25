@@ -3,3 +3,20 @@ CLAUDE.md
 
 # macOS
 .DS_Store
+
+# Secrets: keep keys and passwords in environment variables, never in the repo
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# Logs can contain emails and password-reset links
+*.log
+logs/
+
+# Editor settings
+.idea/
+.vscode/
