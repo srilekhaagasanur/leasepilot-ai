@@ -2,6 +2,9 @@ package com.leasepilot.backend.model;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,7 +35,8 @@ public class Tenancy {
     private Unit unit;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 30)
     private ApprovalStatus status = ApprovalStatus.PENDING;
 
     @Column(nullable = false)

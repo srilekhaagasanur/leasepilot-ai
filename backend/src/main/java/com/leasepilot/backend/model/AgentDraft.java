@@ -2,6 +2,9 @@ package com.leasepilot.backend.model;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -36,7 +39,8 @@ public class AgentDraft {
     private String tenantReplyText;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 30)
     private Responsibility responsibility;
 
     // The lease clause the agent based its decision on (null if none applied)
@@ -58,7 +62,8 @@ public class AgentDraft {
     private String toolTrace;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 30)
     private ApprovalStatus approvalStatus = ApprovalStatus.PENDING;
 
     // Optional comment the manager leaves when approving or rejecting

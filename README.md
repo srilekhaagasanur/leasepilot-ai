@@ -61,7 +61,7 @@ CREATE USER 'leasepilot'@'localhost' IDENTIFIED BY 'choose-a-password';
 GRANT ALL PRIVILEGES ON leasepilot.* TO 'leasepilot'@'localhost';
 ```
 
-The tables and demo data are created automatically the first time the backend starts.
+The tables are created by [Flyway](https://documentation.red-gate.com/flyway) migrations the first time the backend starts, and the demo data is added right after.
 
 ### 2. Start the backend
 
@@ -87,6 +87,12 @@ npm run dev
 ```
 
 Open http://localhost:5173.
+
+## Changing the database
+
+Tables are created and changed only by the numbered SQL files in `backend/src/main/resources/db/migration` (`V1__…`, `V2__…`). On startup, Flyway runs any file the database hasn't seen yet. Hibernate just checks that the Java entities match the tables (`ddl-auto=validate`), and refuses to start if they don't.
+
+To change the schema, change the entity **and** add the next `V<n>__what_it_does.sql`. Never edit a migration that has already run.
 
 ## Accounts
 
@@ -116,7 +122,7 @@ Next:
 
 - [ ] Email verification when a tenant signs up (today anyone who knows an invited email could claim it)
 - [ ] Run the AI in the background so submitting is instant
-- [ ] Database migrations (Flyway) and automated tests
+- [ ] Automated tests
 - [ ] Upload your own lease PDF instead of the sample clauses
 - [ ] Send real emails: create a dedicated Gmail for the app, turn on 2-Step Verification, create an App Password, and start the backend with `MAIL_HOST=smtp.gmail.com`, `MAIL_USERNAME`, `MAIL_PASSWORD` (the App Password), and `MAIL_FROM` set. Until then, emails such as password-reset links are printed in the backend terminal.
 - [ ] Send approved replies and work orders by email

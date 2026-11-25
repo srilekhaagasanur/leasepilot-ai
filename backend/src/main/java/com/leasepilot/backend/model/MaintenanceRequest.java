@@ -55,9 +55,13 @@ public class MaintenanceRequest {
     private String aiSummary;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 30)
     private ServiceCategory category;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 30)
     private Urgency urgency;
 
     // Why the AI chose that urgency, in one sentence
@@ -78,6 +82,8 @@ public class MaintenanceRequest {
     // --- Background AI work ---
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 30)
     private AiStatus aiStatus;
 
     // Why the AI couldn't finish (shown to the manager next to the Retry button)
