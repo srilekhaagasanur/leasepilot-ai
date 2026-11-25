@@ -120,5 +120,5 @@ Next:
 - [ ] Upload your own lease PDF instead of the sample clauses
 - [ ] Send real emails: create a dedicated Gmail for the app, turn on 2-Step Verification, create an App Password, and start the backend with `MAIL_HOST=smtp.gmail.com`, `MAIL_USERNAME`, `MAIL_PASSWORD` (the App Password), and `MAIL_FROM` set. Until then, emails such as password-reset links are printed in the backend terminal.
 - [ ] Send approved replies and work orders by email
-- [ ] Work order tracking and before/after photo verification
+- [ ] Before/after photo verification when a job is marked fixed
 - [ ] Deployment

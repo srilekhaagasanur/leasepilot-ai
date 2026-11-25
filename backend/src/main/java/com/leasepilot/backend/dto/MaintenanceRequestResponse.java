@@ -1,6 +1,8 @@
 package com.leasepilot.backend.dto;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 
 import com.leasepilot.backend.model.AiStatus;
 import com.leasepilot.backend.model.MaintenanceRequest;
@@ -30,9 +32,14 @@ public record MaintenanceRequestResponse(
         // PROCESSING while the AI works on it in the background (null for old requests)
         AiStatus aiStatus,
         // The manager-approved reply to the tenant (null until approved)
-        String replyFromManagement) {
+        String replyFromManagement,
+        // Work order progress after approval
+        LocalDate scheduledFor,
+        Instant tenantConfirmedAt,
+        List<WorkOrderUpdateResponse> updates) {
 
-    public static MaintenanceRequestResponse from(MaintenanceRequest r, String replyFromManagement) {
+    public static MaintenanceRequestResponse from(MaintenanceRequest r, String replyFromManagement,
+                                                 List<WorkOrderUpdateResponse> updates) {
         return new MaintenanceRequestResponse(
                 r.getId(),
                 r.getUnit().getUnitNumber(),
@@ -51,6 +58,9 @@ public record MaintenanceRequestResponse(
                 r.getStatus(),
                 r.getCreatedAt(),
                 r.getAiStatus(),
-                replyFromManagement);
+                replyFromManagement,
+                r.getScheduledFor(),
+                r.getTenantConfirmedAt(),
+                updates);
     }
 }

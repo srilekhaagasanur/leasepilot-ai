@@ -27,6 +27,11 @@ public class EmailService {
         this.from = from;
     }
 
+    // True when a mail server is configured; false means emails are only printed in the terminal
+    public boolean sendsRealEmail() {
+        return !mailHost.isBlank();
+    }
+
     // Returns false if sending failed (the caller decides whether that matters)
     public boolean send(String to, String subject, String text) {
         if (mailHost.isBlank()) {

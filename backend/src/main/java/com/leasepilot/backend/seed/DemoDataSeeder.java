@@ -138,6 +138,8 @@ public class DemoDataSeeder implements CommandLineRunner {
         request.setStatus(RequestStatus.RESOLVED);
         request.setCreatedAt(Instant.parse(reportedOn + "T14:00:00Z"));
         request.setResolvedAt(Instant.parse(resolvedOn + "T20:00:00Z"));
+        // Old, closed repairs: the tenant already confirmed them
+        request.setTenantConfirmedAt(Instant.parse(resolvedOn + "T20:00:00Z"));
         requestRepository.save(request);
     }
 }

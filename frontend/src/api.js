@@ -48,6 +48,8 @@ export const api = {
 
   // Tenant (the logged-in tenant)
   myRequests: () => request('/api/tenant/requests'),
+  confirmFixed: (requestId) => postJson(`/api/tenant/requests/${requestId}/confirm-fixed`),
+  reopen: (requestId, comment) => postJson(`/api/tenant/requests/${requestId}/reopen`, { comment }),
   submitRequest: ({ description, photo, voiceNote }) => {
     const form = new FormData()
     if (description) form.append('description', description)
@@ -60,6 +62,9 @@ export const api = {
   drafts: (status = 'PENDING') => request(`/api/manager/drafts?status=${status}`),
   approveDraft: (draftId, note) => postJson(`/api/manager/drafts/${draftId}/approve`, { note }),
   rejectDraft: (draftId, note) => postJson(`/api/manager/drafts/${draftId}/reject`, { note }),
+  // Work orders: approved jobs. change = { status, note, scheduledFor }
+  workOrders: () => request('/api/manager/work-orders'),
+  updateWorkOrder: (requestId, change) => postJson(`/api/manager/work-orders/${requestId}/status`, change),
   // Requests the AI is still preparing in the background, or couldn't finish
   unfinishedRequests: () => request('/api/manager/requests/unfinished'),
   retryAi: (requestId) => postJson(`/api/manager/requests/${requestId}/retry-ai`),

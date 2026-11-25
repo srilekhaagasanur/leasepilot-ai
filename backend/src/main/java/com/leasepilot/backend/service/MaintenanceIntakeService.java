@@ -38,26 +38,30 @@ public class MaintenanceIntakeService {
     private final AgentDraftRepository draftRepository;
     private final FileStorageService fileStorage;
     private final RequestProcessor requestProcessor;
+    private final WorkOrderService workOrderService;
 
     public MaintenanceIntakeService(TenancyRepository tenancyRepository,
                                     MaintenanceRequestRepository requestRepository,
                                     AgentDraftRepository draftRepository,
                                     FileStorageService fileStorage,
-                                    RequestProcessor requestProcessor) {
+                                    RequestProcessor requestProcessor,
+                                    WorkOrderService workOrderService) {
         this.tenancyRepository = tenancyRepository;
         this.requestRepository = requestRepository;
         this.draftRepository = draftRepository;
         this.fileStorage = fileStorage;
         this.requestProcessor = requestProcessor;
+        this.workOrderService = workOrderService;
     }
 
-    // A tenant's own requests, newest first. The reply is shown only once the manager approved it.
+    // A tenant's own requests, newest first, with each work order's timeline.
+    // The reply is shown only once the manager approved it.
     public List<MaintenanceRequestResponse> listForTenant(Long tenantId) {
         return requestRepository.findByTenantIdOrderByCreatedAtDesc(tenantId).stream()
                 .map(r -> MaintenanceRequestResponse.from(r, draftRepository.findByRequestId(r.getId())
                         .filter(d -> d.getApprovalStatus() == ApprovalStatus.APPROVED)
                         .map(AgentDraft::getTenantReplyText)
-                        .orElse(null)))
+                        .orElse(null), workOrderService.timeline(r.getId())))
                 .toList();
     }
 
@@ -101,7 +105,7 @@ public class MaintenanceIntakeService {
         requestRepository.save(request);
 
         requestProcessor.processInBackground(request.getId());
-        return MaintenanceRequestResponse.from(request, null);
+        return MaintenanceRequestResponse.from(request, null, List.of());
     }
 
     private static boolean isWav(MultipartFile file) {

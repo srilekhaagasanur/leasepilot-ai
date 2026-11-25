@@ -8,9 +8,13 @@ const URGENCY_STYLES = {
 const STATUS_LABELS = {
   SUBMITTED: { text: 'Received', style: 'bg-slate-100 text-slate-700' },
   AWAITING_APPROVAL: { text: 'Under review', style: 'bg-indigo-50 text-indigo-700' },
-  APPROVED: { text: 'Scheduled', style: 'bg-emerald-50 text-emerald-700' },
   REJECTED: { text: 'Needs follow-up', style: 'bg-rose-50 text-rose-700' },
-  RESOLVED: { text: 'Resolved', style: 'bg-emerald-100 text-emerald-800' },
+  APPROVED: { text: 'Approved', style: 'bg-sky-50 text-sky-700' },
+  SCHEDULED: { text: 'Scheduled', style: 'bg-violet-50 text-violet-700' },
+  IN_PROGRESS: { text: 'In progress', style: 'bg-amber-50 text-amber-800' },
+  RESOLVED: { text: 'Fixed', style: 'bg-emerald-100 text-emerald-800' },
+  REOPENED: { text: 'Reopened', style: 'bg-rose-100 text-rose-800' },
+  CANCELLED: { text: 'Cancelled', style: 'bg-slate-200 text-slate-600' },
 }
 
 const RESPONSIBILITY_STYLES = {

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.leasepilot.backend.model.AiStatus;
 import com.leasepilot.backend.model.MaintenanceRequest;
+import com.leasepilot.backend.model.RequestStatus;
 
 public interface MaintenanceRequestRepository extends JpaRepository<MaintenanceRequest, Long> {
 
@@ -28,4 +29,9 @@ public interface MaintenanceRequestRepository extends JpaRepository<MaintenanceR
                                                                                            Collection<AiStatus> statuses);
 
     List<MaintenanceRequest> findByAiStatus(AiStatus aiStatus);
+
+    // Work orders (approved requests and later) in a manager's properties, newest first
+    @EntityGraph(attributePaths = {"unit", "unit.property", "tenant"})
+    List<MaintenanceRequest> findByUnitPropertyManagerIdAndStatusInOrderByCreatedAtDesc(Long managerId,
+                                                                                         Collection<RequestStatus> statuses);
 }

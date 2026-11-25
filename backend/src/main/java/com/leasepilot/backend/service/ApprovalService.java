@@ -31,14 +31,17 @@ public class ApprovalService {
     private final AgentDraftRepository draftRepository;
     private final MaintenanceRequestRepository requestRepository;
     private final RequestProcessor requestProcessor;
+    private final WorkOrderService workOrderService;
     private final JsonMapper jsonMapper;
 
     public ApprovalService(AgentDraftRepository draftRepository,
                            MaintenanceRequestRepository requestRepository, RequestProcessor requestProcessor,
+                           WorkOrderService workOrderService,
                            JsonMapper jsonMapper) {
         this.draftRepository = draftRepository;
         this.requestRepository = requestRepository;
         this.requestProcessor = requestProcessor;
+        this.workOrderService = workOrderService;
         this.jsonMapper = jsonMapper;
     }
 
@@ -61,6 +64,8 @@ public class ApprovalService {
         // For the demo, approving is what "sends" the work order and reply.
         // The tenant sees the reply on their requests page from now on.
         draft.getRequest().setStatus(RequestStatus.APPROVED);
+        // From here on it's a work order the landlord moves forward (see WorkOrderService)
+        workOrderService.recordApproval(draft.getRequest(), managerId);
         return toResponse(draft);
     }
 

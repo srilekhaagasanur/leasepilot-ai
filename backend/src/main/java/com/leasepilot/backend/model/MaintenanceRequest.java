@@ -1,6 +1,10 @@
 package com.leasepilot.backend.model;
 
 import java.time.Instant;
+import java.time.LocalDate;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -82,9 +86,19 @@ public class MaintenanceRequest {
 
     // --- Lifecycle ---
 
+    // Stored as plain text (not a MySQL ENUM), so adding a status never needs a database change
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 30)
     private RequestStatus status = RequestStatus.SUBMITTED;
+
+    // --- Work order (after approval) ---
+
+    // The repair date the landlord set when scheduling
+    private LocalDate scheduledFor;
+
+    // When the tenant confirmed it's really fixed (null until then)
+    private Instant tenantConfirmedAt;
 
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
@@ -120,6 +134,8 @@ public class MaintenanceRequest {
     public RequestStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getResolvedAt() { return resolvedAt; }
+    public LocalDate getScheduledFor() { return scheduledFor; }
+    public Instant getTenantConfirmedAt() { return tenantConfirmedAt; }
 
     public void setPhotoPath(String photoPath) { this.photoPath = photoPath; }
     public void setVoiceNotePath(String voiceNotePath) { this.voiceNotePath = voiceNotePath; }
@@ -136,6 +152,8 @@ public class MaintenanceRequest {
     public void setStatus(RequestStatus status) { this.status = status; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public void setResolvedAt(Instant resolvedAt) { this.resolvedAt = resolvedAt; }
+    public void setScheduledFor(LocalDate scheduledFor) { this.scheduledFor = scheduledFor; }
+    public void setTenantConfirmedAt(Instant tenantConfirmedAt) { this.tenantConfirmedAt = tenantConfirmedAt; }
 
     public void markResolved() {
         this.status = RequestStatus.RESOLVED;

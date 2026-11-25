@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import { CategoryTag, StatusBadge, UrgencyBadge } from './Badges'
 import VoiceRecorder from './VoiceRecorder'
+import { formatDate, WORK_ORDER_STATUSES } from '../workOrders'
+import { ProgressSteps, Timeline } from './WorkOrderParts'
 
 export default function TenantView({ user }) {
   const [requests, setRequests] = useState([])
@@ -40,7 +42,7 @@ export default function TenantView({ user }) {
           <p className="text-slate-500">No requests yet.</p>
         ) : (
           <ul className="space-y-3">
-            {requests.map((r) => <RequestItem key={r.id} request={r} />)}
+            {requests.map((r) => <RequestItem key={r.id} request={r} onChanged={loadRequests} />)}
           </ul>
         )}
       </section>
@@ -132,7 +134,9 @@ function ReportForm({ user, onSubmitted }) {
   )
 }
 
-function RequestItem({ request: r }) {
+function RequestItem({ request: r, onChanged }) {
+  const isWorkOrder = WORK_ORDER_STATUSES.includes(r.status) && r.updates?.length > 0
+
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -151,6 +155,16 @@ function RequestItem({ request: r }) {
         <CategoryTag category={r.category} />
         <UrgencyBadge urgency={r.urgency} />
       </div>
+      {isWorkOrder && (
+        <div className="mt-3 space-y-3">
+          <ProgressSteps status={r.status} />
+          {r.status === 'SCHEDULED' && r.scheduledFor && (
+            <p className="text-sm font-medium text-violet-800">📅 Repair scheduled for {formatDate(r.scheduledFor)}</p>
+          )}
+          <Timeline updates={r.updates} />
+        </div>
+      )}
+      {r.status === 'RESOLVED' && !r.tenantConfirmedAt && <ConfirmFix request={r} onChanged={onChanged} />}
       {r.replyFromManagement && (
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Reply from management</p>
@@ -158,5 +172,57 @@ function RequestItem({ request: r }) {
         </div>
       )}
     </li>
+  )
+}
+
+// After the landlord marks a job fixed, the tenant confirms it or says it's still broken
+function ConfirmFix({ request: r, onChanged }) {
+  const [reopening, setReopening] = useState(false)
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function send(call) {
+    setBusy(true)
+    setError(null)
+    try {
+      await call()
+      onChanged()
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+      <p className="font-semibold text-emerald-900">Your landlord marked this fixed. Is it?</p>
+      {!reopening ? (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button onClick={() => send(() => api.confirmFixed(r.id))} disabled={busy}
+            className="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+            Yes, it's fixed
+          </button>
+          <button onClick={() => setReopening(true)} disabled={busy}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            Still not fixed
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); send(() => api.reopen(r.id, comment)) }} className="mt-2 space-y-2">
+          <textarea required rows={2} value={comment} onChange={(e) => setComment(e.target.value)}
+            placeholder="What's still wrong?"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={busy}
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+              {busy ? 'Sending…' : 'Send to landlord'}
+            </button>
+            <button type="button" onClick={() => setReopening(false)} className="text-slate-600 hover:text-slate-900">Back</button>
+          </div>
+        </form>
+      )}
+      {error && <p className="mt-2 text-rose-700">{error}</p>}
+    </div>
   )
 }

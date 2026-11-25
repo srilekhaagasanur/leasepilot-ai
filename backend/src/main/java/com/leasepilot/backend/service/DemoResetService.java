@@ -24,6 +24,7 @@ import com.leasepilot.backend.repository.PropertyRepository;
 import com.leasepilot.backend.repository.TenancyRepository;
 import com.leasepilot.backend.repository.TenantInviteRepository;
 import com.leasepilot.backend.repository.UnitRepository;
+import com.leasepilot.backend.repository.WorkOrderUpdateRepository;
 import com.leasepilot.backend.seed.DemoDataSeeder;
 
 // Puts the demo back to its starting point, so every demo run starts clean.
@@ -45,6 +46,7 @@ public class DemoResetService {
     private final MaintenanceRequestRepository requestRepository;
     private final AgentDraftRepository draftRepository;
     private final PasswordResetTokenRepository resetTokenRepository;
+    private final WorkOrderUpdateRepository updateRepository;
     private final FileStorageService fileStorage;
     private final DemoDataSeeder seeder;
 
@@ -53,6 +55,7 @@ public class DemoResetService {
                             TenantInviteRepository inviteRepository, LeaseRepository leaseRepository,
                             LeaseClauseRepository clauseRepository, MaintenanceRequestRepository requestRepository,
                             AgentDraftRepository draftRepository, PasswordResetTokenRepository resetTokenRepository,
+                            WorkOrderUpdateRepository updateRepository,
                             FileStorageService fileStorage,
                             DemoDataSeeder seeder) {
         this.userRepository = userRepository;
@@ -65,6 +68,7 @@ public class DemoResetService {
         this.requestRepository = requestRepository;
         this.draftRepository = draftRepository;
         this.resetTokenRepository = resetTokenRepository;
+        this.updateRepository = updateRepository;
         this.fileStorage = fileStorage;
         this.seeder = seeder;
     }
@@ -92,6 +96,7 @@ public class DemoResetService {
         List<AppUser> tenants = new ArrayList<>();
         for (Unit unit : unitRepository.findByPropertyId(property.getId())) {
             for (MaintenanceRequest request : requestRepository.findByUnitIdOrderByCreatedAtDesc(unit.getId())) {
+                updateRepository.deleteAll(updateRepository.findByRequestIdOrderByCreatedAt(request.getId()));
                 draftRepository.findByRequestId(request.getId()).ifPresent(draftRepository::delete);
                 requestIds.add(request.getId());
                 requestRepository.delete(request);

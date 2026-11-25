@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import DraftCard from './DraftCard'
 import PropertiesView from './PropertiesView'
+import WorkOrdersView from './WorkOrdersView'
 
 const TABS = [
   { id: 'queue', label: 'Approval queue' },
+  { id: 'workorders', label: 'Work orders' },
   { id: 'history', label: 'History' },
   { id: 'properties', label: 'Properties' },
 ]
@@ -14,20 +16,23 @@ export default function ManagerView() {
   const [drafts, setDrafts] = useState([])
   const [history, setHistory] = useState([])
   const [unfinished, setUnfinished] = useState([])
+  const [workOrders, setWorkOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
   // quiet: refresh in the background without the "Loading…" flash
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true)
     try {
-      const [pending, approved, rejected, notReady] = await Promise.all([
+      const [pending, approved, rejected, notReady, jobs] = await Promise.all([
         api.drafts('PENDING'),
         api.drafts('APPROVED'),
         api.drafts('REJECTED'),
         api.unfinishedRequests(),
+        api.workOrders(),
       ])
       setDrafts(pending)
       setUnfinished(notReady)
+      setWorkOrders(jobs)
       setHistory([...approved, ...rejected].sort((a, b) => new Date(b.decidedAt) - new Date(a.decidedAt)))
     } finally {
       setLoading(false)
@@ -44,7 +49,8 @@ export default function ManagerView() {
     return () => clearInterval(timer)
   }, [aiWorking, load])
 
-  const counts = { queue: drafts.length, history: history.length }
+  const openJobs = workOrders.filter((w) => ['APPROVED', 'SCHEDULED', 'IN_PROGRESS', 'REOPENED'].includes(w.status)).length
+  const counts = { queue: drafts.length, workorders: openJobs, history: history.length }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -80,6 +86,8 @@ export default function ManagerView() {
           ? <Empty text="No decisions yet." />
           : <div className="space-y-6">{history.map((d) => <DraftCard key={d.draftId} draft={d} onDecided={load} />)}</div>
       )}
+
+      {!loading && tab === 'workorders' && <WorkOrdersView workOrders={workOrders} onChanged={() => load({ quiet: true })} />}
 
       {tab === 'properties' && <PropertiesView />}
     </div>
